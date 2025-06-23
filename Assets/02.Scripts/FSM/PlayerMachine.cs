@@ -18,6 +18,23 @@ public class PlayerMachine : CharacterMachine
     private void Start()
     {
         Initialize(CharacterStateWorkflowsDataSheet.GetWorkflowsForPlayer(this));
+        onHpDepleted += (amount) =>
+        {
+            ChangeState(State.Hurt);
+        };
+        onHpDepleted += (amount) =>
+        {
+            isInvincible = true;
+            
+            if (hpValue > hpMin)
+                Invoke("ResetInvincible", 0.5f);
+        };
+        onHpMin += () => ChangeState(State.Die);
+    }
+    
+    private void ResetInvincible()
+    {
+        isInvincible = false;
     }
 
     protected override void Update()

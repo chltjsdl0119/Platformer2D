@@ -23,7 +23,7 @@ public enum State
     Die
 }
 
-public abstract class CharacterMachine : MonoBehaviour
+public abstract class CharacterMachine : MonoBehaviour, IHp
 {
     // Direction
     public int direction
@@ -55,11 +55,15 @@ public abstract class CharacterMachine : MonoBehaviour
             {
                 throw new System.Exception("[CharacterMachine] Invalid direction value: " + value);
             }
+            
+            onDirectionChanged?.Invoke(_direction);
         }
     }
 
     private int _direction = DIRECTION_RIGHT;
     [HideInInspector] public bool isDirectionChangeable;
+    
+    public event Action<int> onDirectionChanged;
 
     public const int DIRECTION_RIGHT = 1;
     public const int DIRECTION_LEFT = -1;
@@ -126,6 +130,67 @@ public abstract class CharacterMachine : MonoBehaviour
     [SerializeField] private float _wallDetectDistance;
     [SerializeField] private LayerMask _wallMask;
 
+    public bool isInvincible { get; set; }
+    
+    // Hp
+    public float hpValue
+    {
+        get => _hpValue;
+        private set
+        {
+            if (value == _hpValue)
+                return;
+
+            if (value > _hpMax)
+                value = _hpMax;
+            else if (value < hpMin)
+                value = hpMin;
+
+            _hpValue = value;
+            onHpChanged?.Invoke(value);
+            
+            if (value == hpMax)
+                onHpMax?.Invoke();
+            else if (value == hpMin)
+                onHpMin?.Invoke();
+        }
+    }
+    public float hpMax => _hpMax;
+    public float hpMin => 0.0f;
+
+    private float _hpValue;
+    [SerializeField] private float _hpMax;
+    
+    public void RecoverHp(object subject, float amount)
+    {
+        if (amount <= 0)
+            return;
+
+        hpValue += amount;
+        onHpRecovered?.Invoke(amount);
+    }
+
+    public void DepleteHp(object subject, float amount)
+    {
+        if (isInvincible)
+            return;
+        
+        if (amount <= 0)
+            return;
+
+        hpValue -= amount;
+        onHpDepleted?.Invoke(amount);
+    }
+
+    public event Action<float> onHpChanged;
+    public event Action<float> onHpRecovered;
+    public event Action<float> onHpDepleted;
+    public event Action onHpMax;
+    public event Action onHpMin;
+
+    public float attackForceMin;
+    public float attackForceMax;
+
     public void Initialize(IEnumerable<KeyValuePair<State, IWorkflow<State>>> copy)
     {
         _states = new Dictionary<State, IWorkflow<State>>(copy);
@@ -156,12 +221,19 @@ public abstract class CharacterMachine : MonoBehaviour
         _isDirty = true;
         return true;
     }
+    
+    public void Knockback(Vector2 force)
+    {
+        _rigidbody.velocity = Vector2.zero;
+        _rigidbody.AddForce(force, ForceMode2D.Impulse);
+    }
 
-    private void Awake()
+    protected virtual void Awake()
     {
         animator = GetComponentInChildren<Animator>();
         _rigidbody = GetComponent<Rigidbody2D>();
         _direction = DIRECTION_RIGHT;
+        _hpValue = _hpMax;
     }
 
     protected virtual void Update()
@@ -248,7 +320,7 @@ public abstract class CharacterMachine : MonoBehaviour
         }
     }
 
-    private void OnDrawGizmos()
+    protected virtual void OnDrawGizmos()
     {
         Gizmos.color = Color.green;
         Gizmos.DrawWireCube(transform.position + (Vector3)_groundDetectCenter, _groundDetectSize);

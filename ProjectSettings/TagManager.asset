@@ -50,3 +50,9 @@ TagManager:
   - name: Player
     uniqueID: 194601437
     locked: 0
+  - name: Enemy
+    uniqueID: 63113547
+    locked: 0
+  - name: DamageEffect
+    uniqueID: 2691989471
+    locked: 0
